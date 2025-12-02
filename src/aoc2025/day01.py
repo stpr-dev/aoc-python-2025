@@ -56,13 +56,9 @@ def count_multiples_in_range(cumulative_indices: list[int], value: int = 100) ->
         # Since it is possible to turn backwards, we need to check for both cases.
 
         if start <= end:
-            multiples += sum(
-                1 for i in range(start, end, +1) if i % value == 0
-            )
+            multiples += sum(1 for i in range(start, end, +1) if i % value == 0)
         else:
-            multiples += sum(
-                1 for i in range(start, end, -1) if i % value == 0
-            )
+            multiples += sum(1 for i in range(start, end, -1) if i % value == 0)
 
     return multiples
 
@@ -88,7 +84,7 @@ def main() -> None:
     indices: list[int] = [i % total_positions for i in cumulative_indices]
 
     # Print zipped indices and data for verification.
-    print(list(zip(indices, data)))
+    print(list(zip(indices, data, strict=True)))
 
     # The solution to the puzzle is essentially calculating the number of times we
     # hit 0.
@@ -102,5 +98,7 @@ def main() -> None:
         cumulative_indices, value=total_positions
     )
     print(f"Number of times we wrapped around: {wrap_counts} (Part 2 solution).")
+
+
 if __name__ == "__main__":
     main()
