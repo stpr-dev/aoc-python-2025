@@ -70,10 +70,54 @@ def count_hits(data: list[int], target: int, total: int = 100) -> int:
         # direction.
         # A good way to find the correct to apply is to diff the divisors.
         total_hits += abs(divisors[idx] - divisors[idx - 1])
-        
+
         counts.append(total_hits)
 
     return sum(counts)
+
+
+def count_multiples_in_range(cumulative_indices: list[int], value: int = 100) -> int:
+    """Count multiples of a value in a list of cumulative indices.
+
+    This function treats consecutive indices as ranges and checks to see how many
+    values in those ranges are multiples of a value.
+
+    Args:
+        cumulative_indices: List of cumulative indices.
+        value: The value to check for multiples. Defaults to 100.
+
+    Returns:
+        The count of multiples of the given value within the ranges defined by the
+            cumulative indices.
+
+    Notes:
+        This function is EXTREMELY unoptimized. It is route 101 solution to the
+        problem. It should be optimized for better performance.
+    """
+
+    if len(cumulative_indices) < 2:
+        raise ValueError(
+            "List of cumulative indices must contain at least two elements."
+        )
+
+    multiples: int = 0
+
+    for idx in range(len(cumulative_indices) - 1):
+        start: int = cumulative_indices[idx]
+        end: int = cumulative_indices[idx + 1]
+
+        # Since it is possible to turn backwards, we need to check for both cases.
+
+        if start <= end:
+            multiples += sum(
+                1 for i in range(start, end, +1) if i % value == 0
+            )
+        else:
+            multiples += sum(
+                1 for i in range(start, end, -1) if i % value == 0
+            )
+
+    return multiples
 
 
 def main() -> None:
@@ -103,17 +147,13 @@ def main() -> None:
     # hit 0.
     element_of_interest: int = 0
     count: int = indices.count(element_of_interest)
-    print(
-        f"Number of times we hit {element_of_interest}:"
-        f" {count} (Part 1 solution)."
-    )
+    print(f"Number of times we hit {element_of_interest}: {count} (Part 1 solution).")
 
-    # Now part 2 dictates that instead of finding zero, we need to count how many
-    # times we “run past zero”.
-    num_hits: int = count_hits(
-        cumulative_indices, target=element_of_interest, total=total_positions
+    # Now part 2 dictates that in addition to finding zero, we need to count how many
+    # times we “run past zero” as well.
+    wrap_counts: int = count_multiples_in_range(
+        cumulative_indices, value=total_positions
     )
-    print(f"Number of times we run past zero: {num_hits} (Part 2 solution).")
-
+    print(f"Number of times we wrapped around: {wrap_counts} (Part 2 solution).")
 if __name__ == "__main__":
     main()
