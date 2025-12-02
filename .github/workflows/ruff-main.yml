@@ -16,6 +16,3 @@ jobs:
       - uses: astral-sh/ruff-action@v3
         with:
           src: "./src"
-          output-format: "github"
-          upload-artifact: false
-          update-badge: true
