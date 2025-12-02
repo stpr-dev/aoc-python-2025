@@ -1,5 +1,4 @@
 from pathlib import Path
-import math
 
 from utils.io import read_input_lines
 
@@ -22,58 +21,6 @@ def signed_int_to_cumulative_index(data: list[int], start: int = 0) -> list[int]
         cumulative_data.append(cumulative_sum)
 
     return cumulative_data
-
-
-def count_hits(data: list[int], target: int, total: int = 100) -> int:
-    """Count the number of times the target is reached in modulo space.
-
-    Args:
-        data (list[int]): Signed indices.
-        target (int): Target integer to count hits for.
-        total (int, optional): Total number of positions. Defaults to 100.
-
-    Returns:
-        int: Number of times the target is reached.
-    """
-    # The goal is to count in a rotation, how many times we "hit" a target.
-    # This could happen in 4 ways:
-    # - Go from > target to < target
-    # - Go from < target to > target
-    # - Go from < target to >> target (wrapping around)
-    # - Go from > target to << target (wrapping around)
-
-    # Trivially, we can subtract the target from the cumulative indices to zero
-    # centre it.
-    zero_centred_data: list[int] = [i - target for i in data]
-
-    # Next for counting wrap arounds, we can work with divisors.
-    divisors: list[int] = [math.trunc(zdata / total) for zdata in zero_centred_data]
-    # Now put together all cases.
-    counts: list[int] = []
-
-    for idx, zdata in enumerate(zero_centred_data):
-        total_hits: int = 0
-        if idx == 0:
-            # We need at least two zdata points to see if we ran past zero.
-            continue
-
-        # First calculate if sign change occurred.
-        sign_change: bool = zero_centred_data[idx - 1] * zdata <= 0
-
-        if sign_change:
-            total_hits += 1
-
-        # Sign change only gives us one hit but that isn't the full picture.
-        # For instance, consider the case where the total is 10 and we are at -5. If
-        # the transition was -5 -> 21, we also need to count 10->21 as a hit since it
-        # wrapped around to zero and started again. Same logic applies to the other
-        # direction.
-        # A good way to find the correct to apply is to diff the divisors.
-        total_hits += abs(divisors[idx] - divisors[idx - 1])
-
-        counts.append(total_hits)
-
-    return sum(counts)
 
 
 def count_multiples_in_range(cumulative_indices: list[int], value: int = 100) -> int:
