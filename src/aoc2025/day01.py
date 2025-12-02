@@ -1,4 +1,7 @@
 from pathlib import Path
+from collections.abc import Callable
+from typing import Any
+import timeit
 
 from utils.io import read_input_lines
 
@@ -21,6 +24,22 @@ def signed_int_to_cumulative_index(data: list[int], start: int = 0) -> list[int]
         cumulative_data.append(cumulative_sum)
 
     return cumulative_data
+
+
+def part1_wrapper(
+    data: list[str],
+    start: int = 0,
+    total: int = 100,
+) -> tuple[list[int], list[int]]:
+    """Part 1 of aoc-python-2025."""
+    signed_int_data: list[int] = data_to_signed_int(data)
+    cumulative_indices: list[int] = signed_int_to_cumulative_index(
+        signed_int_data, start=start
+    )
+
+    indices: list[int] = [i % total for i in cumulative_indices[1:]]
+
+    return indices, cumulative_indices
 
 
 def count_multiples_in_range(cumulative_indices: list[int], value: int = 100) -> int:
@@ -63,6 +82,91 @@ def count_multiples_in_range(cumulative_indices: list[int], value: int = 100) ->
     return multiples
 
 
+def count_multiples_in_range_optimised(
+    cumulative_indices: list[int], value: int = 100
+) -> int:
+    """Count multiples of a value in a list of cumulative indices.
+
+    This function treats consecutive indices as ranges and checks to see how many
+    values in those ranges are multiples of a value.
+
+    Args:
+        cumulative_indices: List of cumulative indices.
+        value: The value to check for multiples. Defaults to 100.
+
+    Returns:
+        The count of multiples of the given value within the ranges defined by the
+            cumulative indices.
+    """
+
+    if len(cumulative_indices) < 2:
+        raise ValueError(
+            "List of cumulative indices must contain at least two elements."
+        )
+
+    multiples: int = 0
+
+    for idx in range(len(cumulative_indices) - 1):
+        start: int = cumulative_indices[idx]
+        end: int = cumulative_indices[idx + 1]
+
+        delta: int = end - start
+
+        if delta >= 0:
+            multiples += end // value - start // value
+        else:
+            multiples += (start - 1) // value - (end - 1) // value
+
+    return multiples
+
+
+def _time_callable(fn: Callable[..., Any], *args: Any, number: int = 5) -> float:
+    """Time a single callable using timeit, returning average seconds per run."""
+    timer = timeit.Timer(lambda: fn(*args))
+    total_time = timer.timeit(number=number)
+    return total_time / number
+
+
+def benchmark(
+    data: list[str],
+    *,
+    start: int = 0,
+    total: int = 100,
+    number: int = 10,
+) -> dict[str, float]:
+    """
+    Benchmark the three target functions.
+    Assumes the functions are already imported and available in the namespace.
+    """
+
+    # Run part1_wrapper once to get cumulative data needed for part2.
+    cumulative_indices, _ = part1_wrapper(data, start=start, total=total)
+
+    timings: dict[str, float] = {
+        "part1_wrapper": _time_callable(
+            part1_wrapper,
+            data,
+            start,
+            total,
+            number=number,
+        ),
+        "count_multiples_in_range": _time_callable(
+            count_multiples_in_range,
+            cumulative_indices,
+            100,
+            number=number,
+        ),
+        "count_multiples_in_range_optimised": _time_callable(
+            count_multiples_in_range_optimised,
+            cumulative_indices,
+            100,
+            number=number,
+        ),
+    }
+
+    return timings
+
+
 def main() -> None:
     data_path: Path = (
         Path(__file__).parent.parent.parent / "data" / "2025" / "day01.txt"
@@ -76,12 +180,10 @@ def main() -> None:
     # Puzzle dictates we are starting at 50 and we have 100 positions.
     start: int = 50
     total_positions: int = 100
-    signed_int_data: list[int] = data_to_signed_int(data)
-    cumulative_indices: list[int] = signed_int_to_cumulative_index(
-        signed_int_data, start=start
-    )
 
-    indices: list[int] = [i % total_positions for i in cumulative_indices]
+    indices, cumulative_indices = part1_wrapper(
+        data, start=start, total=total_positions
+    )
 
     # Print zipped indices and data for verification.
     print(list(zip(indices, data, strict=True)))
@@ -98,6 +200,17 @@ def main() -> None:
         cumulative_indices, value=total_positions
     )
     print(f"Number of times we wrapped around: {wrap_counts} (Part 2 solution).")
+
+    multiple_of_interest: int = count_multiples_in_range_optimised(
+        cumulative_indices, value=total_positions
+    )
+
+    print(f"Number of multiples of {total_positions}: {multiple_of_interest}.")
+
+    from pprint import pprint
+
+    result = benchmark(data, start=start, total=total_positions, number=100)
+    pprint(result)
 
 
 if __name__ == "__main__":
