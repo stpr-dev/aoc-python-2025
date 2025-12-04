@@ -2,8 +2,8 @@ from pathlib import Path
 from pprint import pprint
 from typing import Protocol, TypeVar
 
-from utils.io import read_input_lines
-from utils.benchmark import time_callable
+from .utils.io import read_input_lines
+from .utils.benchmark import time_callable
 
 
 def part1_get_largest_2_digit(data: list[str]) -> list[int]:
