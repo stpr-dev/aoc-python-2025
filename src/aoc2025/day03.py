@@ -79,6 +79,19 @@ def get_largest_sub_list(lst: list[T]) -> list[T]:
     return lst[:-1]
 
 
+def max_k_digits(digits: list[T], k: int) -> list[T]:
+    drop = len(digits) - k
+    stack: list[T] = []
+
+    for d in digits:
+        while drop > 0 and stack and stack[-1] < d:
+            stack.pop()
+            drop -= 1
+        stack.append(d)
+
+    return stack[:k]
+
+
 def part2_get_largest_k_digit(data: list[str], k: int = 12) -> list[int]:
     """Return a list of the largest k digit numbers in each string in the input data."""
     largest_k_digit_numbers: list[int] = []
@@ -95,6 +108,27 @@ def part2_get_largest_k_digit(data: list[str], k: int = 12) -> list[int]:
 
         while len(digits) > k:
             digits = get_largest_sub_list(digits)
+
+        largest_k_digit_numbers.append(int("".join(digits)))
+
+    return largest_k_digit_numbers
+
+
+def part2_get_largest_k_digit_optimised(data: list[str], k: int = 12) -> list[int]:
+    """Return a list of the largest k digit numbers in each string in the input data."""
+    largest_k_digit_numbers: list[int] = []
+
+    # This is an extension of part 1, but now we need to pick the largest k digits.
+    # One optimal way to do this is to find the argsort of the list, pop the first
+    # n-k elements, then use the rest of the list to find the largest k digits.
+
+    for line in data:
+        digits: list[str] = [char for char in line if char.isdigit()]
+
+        if k > len(digits):
+            raise ValueError(f"Got {k=} but only {len(digits)=} digits in the input.")
+
+        digits = max_k_digits(digits, k=k)
 
         largest_k_digit_numbers.append(int("".join(digits)))
 
@@ -124,6 +158,9 @@ def benchmark(
             number=number,
         ),
         "part2": time_callable(part2_get_largest_k_digit, data, k, number=number),
+        "part2_optimised": time_callable(
+            part2_get_largest_k_digit_optimised, data, k, number=number
+        ),
     }
 
     return timings
@@ -157,6 +194,12 @@ def main() -> None:
     pprint(largest_k_digit_numbers)
 
     print(f"Solution to part 2 is: {sum(largest_k_digit_numbers)}.")
+
+    largest_k_digit_numbers_opt = part2_get_largest_k_digit_optimised(data, k=12)
+    print(f"Solution to part 2 (optimised) is: {sum(largest_k_digit_numbers_opt)}.")
+
+    if largest_k_digit_numbers != largest_k_digit_numbers_opt:
+        raise ValueError("Optimised solution is incorrect!")
 
     timings = benchmark(data, number=100)
     pprint(timings)
