@@ -1,7 +1,7 @@
 from pathlib import Path
 from pprint import pprint
 
-from utils.io import read_input
+from .utils.io import read_input
 
 
 def part1_get_invalid_ids_brute_force(ranges: list[list[int]]) -> list[int]:
