@@ -35,8 +35,20 @@ class Comparable(Protocol):
     def __lt__(self: T, other: T) -> bool: ...
 
 
-def argsort(x: list[T], reverse: bool = False) -> list[int]:
-    return sorted(range(len(x)), key=x.__getitem__, reverse=reverse)
+def get_largest_sub_list(lst: list[T]) -> list[T]:
+    """Return the largest sublist in the input list formed by removing exactly one
+    element."""
+
+    if len(lst) < 2:
+        raise ValueError(
+            f"Got {len(lst)=} elements in the input list, expected at least 2."
+        )
+
+    for idx in range(len(lst) - 1):
+        if lst[idx] < lst[idx + 1]:
+            return lst[:idx] + lst[idx + 1 :]
+
+    return lst[:-1]
 
 
 def part2_get_largest_k_digit(data: list[str], k: int = 12) -> list[int]:
@@ -53,34 +65,17 @@ def part2_get_largest_k_digit(data: list[str], k: int = 12) -> list[int]:
         if k > len(digits):
             raise ValueError(f"Got {k=} but only {len(digits)=} digits in the input.")
 
-        # indices: list[int] = argsort(digits, reverse=True)[:k]
+        while len(digits) > k:
+            digits = get_largest_sub_list(digits)
 
-        # The one complication here is that we simply cannot take the first k largest
-        # digits as it violates the constraint that the digits must be in the order
-        # they appear. The goal is to pick the top k digits but still retain their
-        # original placement within the string.
-
-        # Now we have argsort indices. Effectively, we know where the largest k
-        # digits are. This serves as the "allow list".
-        # Now all that's left to do is go through each digit in the original list,
-        # see if it's rank is at least in the top k-1.
-
-        indices: list[int] = argsort(digits, reverse=True)[:k]
-
-        k_digit_numbers: list[str] = []
-
-        for idx, digit in enumerate(digits):
-            if idx in indices:
-                k_digit_numbers.append(digit)
-
-        largest_k_digit_numbers.append(int("".join(k_digit_numbers)))
+        largest_k_digit_numbers.append(int("".join(digits)))
 
     return largest_k_digit_numbers
 
 
 def main() -> None:
     data_path: Path = (
-        Path(__file__).parent.parent.parent / "data" / "2025" / "day03example.txt"
+        Path(__file__).parent.parent.parent / "data" / "2025" / "day03.txt"
     )
 
     if not data_path.exists():
