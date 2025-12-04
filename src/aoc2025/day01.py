@@ -1,8 +1,6 @@
 from pathlib import Path
 import math
-from collections.abc import Callable
-from typing import Any
-import timeit
+from utils.benchmark import time_callable
 
 from utils.io import read_input_lines
 
@@ -187,13 +185,6 @@ def count_multiples_in_range_optimised_v2(
     return multiples
 
 
-def _time_callable(fn: Callable[..., Any], *args: Any, number: int = 5) -> float:
-    """Time a single callable using timeit, returning average seconds per run."""
-    timer = timeit.Timer(lambda: fn(*args))
-    total_time = timer.timeit(number=number)
-    return total_time / number
-
-
 def benchmark(
     data: list[str],
     *,
@@ -210,26 +201,26 @@ def benchmark(
     cumulative_indices, _ = part1_wrapper(data, start=start, total=total)
 
     timings: dict[str, float] = {
-        "part1_wrapper": _time_callable(
+        "part1_wrapper": time_callable(
             part1_wrapper,
             data,
             start,
             total,
             number=number,
         ),
-        "count_multiples_in_range": _time_callable(
+        "count_multiples_in_range": time_callable(
             count_multiples_in_range,
             cumulative_indices,
             100,
             number=number,
         ),
-        "count_multiples_in_range_optimised": _time_callable(
+        "count_multiples_in_range_optimised": time_callable(
             count_multiples_in_range_optimised,
             cumulative_indices,
             100,
             number=number,
         ),
-        "count_multiples_in_range_optimised_v2": _time_callable(
+        "count_multiples_in_range_optimised_v2": time_callable(
             count_multiples_in_range_optimised_v2,
             cumulative_indices,
             100,
