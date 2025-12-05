@@ -6,12 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.5.0",
-    "pytest>=8.0.0",
-]
-
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -103,7 +97,11 @@ docstring-code-line-length = "dynamic"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.148.7",
+    "ipython>=9.8.0",
     "pre-commit>=4.5.0",
+    "pytest>=9.0.1",
+    "ruff>=0.14.7",
 ]
 
 [tool.pytest.ini_options]
