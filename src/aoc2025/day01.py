@@ -1,8 +1,8 @@
 from pathlib import Path
 import math
-from .utils.benchmark import time_callable
 
-from .utils.io import read_input_lines
+from aoc2025.utils.benchmark import time_callable
+from aoc2025.utils.io import read_input_lines
 
 
 def data_to_signed_int(data: list[str]) -> list[int]:

@@ -17,16 +17,18 @@ def test_part1_get_invalid_ids_brute_force():
         [2121212118, 2121212124],
     ]
 
-    assert d02.part1_get_invalid_ids_brute_force(ranges) == [
-        11,
-        22,
-        99,
-        1010,
-        1188511885,
-        222222,
-        446446,
-        38593859,
-    ]
+    assert d02.part1_get_invalid_ids_brute_force(ranges) == sorted(
+        [
+            11,
+            22,
+            99,
+            1010,
+            1188511885,
+            222222,
+            446446,
+            38593859,
+        ]
+    )
 
 
 @pytest.mark.parametrize(
@@ -59,18 +61,20 @@ def test_part2_get_invalid_ids_brute_force():
         [2121212118, 2121212124],
     ]
 
-    assert d02.part2_get_invalid_ids_brute_force(ranges) == [
-        11,
-        22,
-        99,
-        111,
-        999,
-        1010,
-        1188511885,
-        222222,
-        446446.0,
-        38593859,
-        565656,
-        824824824,
-        2121212121,
-    ]
+    assert d02.part2_get_invalid_ids_brute_force(ranges) == sorted(
+        [
+            11,
+            22,
+            99,
+            111,
+            999,
+            1010,
+            1188511885,
+            222222,
+            446446,
+            38593859,
+            565656,
+            824824824,
+            2121212121,
+        ]
+    )
