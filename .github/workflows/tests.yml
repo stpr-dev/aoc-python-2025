@@ -8,13 +8,25 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.13", "3.14"]
+
     steps:
-      - uses: actions/checkout@v6
-      - name: Install the latest version of uv and set the python version
+      - uses: actions/checkout@v4
+
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Sync environment (install deps + dev-deps according to pyproject/uv.lock)
-        run: uv sync --all-extras
-      - name: Test with python ${{ matrix.python-version }}
-        run: uv run --frozen pytest
+
+      - name: Cache uv environment
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-${{ matrix.python-version }}-
+
+      - name: Sync environment
+        run: uv sync --all-extras --frozen
+
+      - name: Run tests
+        run: uv run pytest -q
