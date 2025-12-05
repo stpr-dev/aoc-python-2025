@@ -63,6 +63,22 @@ class Conv2d[T]:
         zero: T = first - first
         return sum((sum(row, start=zero) for row in matrix), start=zero)
 
+    @staticmethod
+    def pad_matrix(matrix: list[list[T]], padding: int = 1) -> list[list[T]]:
+        """Pad a matrix with zeros on all sides."""
+        zero = matrix[0][0] - matrix[0][0]
+
+        zero_row = [zero] * (2 * padding + len(matrix[0]))
+
+        out = [zero_row.copy()] * padding
+
+        for row in matrix:
+            out.append([zero] * padding + row + [zero] * padding)
+
+        out += [zero_row.copy()] * padding
+
+        return out
+
 
 def main() -> None:
     data_path: Path = (
