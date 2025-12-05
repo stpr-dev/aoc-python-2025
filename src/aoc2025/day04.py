@@ -17,22 +17,51 @@ class Numeric(Protocol):
 T = TypeVar("T", bound=Numeric)
 
 
-def hadamard_product(
-    kernel: list[list[T]],
-    data: list[list[T]],
-) -> list[list[T]]:
-    """Compute the Hadamard product of a kernel and a data matrix."""
-    return [
-        [kernel[i][j] * data[i][j] for j, _ in enumerate(row)]
-        for i, row in enumerate(kernel)
-    ]
+class Conv2d[T]:
+    """A simple conv2d implementation in Python."""
 
+    def __init__(self, kernel: list[list[T]]) -> None:
+        if not Conv2d.is_valid_matrix(kernel):
+            raise ValueError("Kernel must be a valid matrix")
+        self.kernel: list[list[T]] = kernel
 
-def reduce_matrix(matrix: list[list[T]]) -> T:
-    """Reduce a matrix to a single value by summing all elements."""
-    first: T = matrix[0][0]
-    zero: T = first - first
-    return sum((sum(row, start=zero) for row in matrix), start=zero)
+    @staticmethod
+    def is_valid_matrix(matrix: list[list[T]]) -> bool:
+        """Check if a matrix is valid."""
+        if not matrix or not all(len(row) == len(matrix[0]) for row in matrix):
+            return False
+        return True
+
+    @staticmethod
+    def generate_constant_kernel(
+        size: tuple[int, int], constant: T = 1
+    ) -> list[list[T]]:
+        """Generate a kernel of constant value of the given size."""
+        if size[0] <= 0 or size[1] <= 0:
+            raise ValueError("Size must be positive")
+        return [[constant for _ in range(size[1])] for _ in range(size[0])]
+
+    @staticmethod
+    def hadamard_product(
+        kernel: list[list[T]],
+        data: list[list[T]],
+    ) -> list[list[T]]:
+        """Compute the Hadamard product of a kernel and a data matrix."""
+        if not Conv2d.is_valid_matrix(kernel) or not Conv2d.is_valid_matrix(data):
+            raise ValueError("Kernel and data must be valid matrices")
+        return [
+            [kernel[i][j] * data[i][j] for j, _ in enumerate(row)]
+            for i, row in enumerate(kernel)
+        ]
+
+    @staticmethod
+    def reduce_matrix(matrix: list[list[T]]) -> T:
+        """Reduce a matrix to a single value by summing all elements."""
+        if not Conv2d.is_valid_matrix(matrix):
+            raise ValueError("Matrix must be valid")
+        first: T = matrix[0][0]
+        zero: T = first - first
+        return sum((sum(row, start=zero) for row in matrix), start=zero)
 
 
 def main() -> None:

@@ -31,7 +31,7 @@ import aoc2025.day04 as d04
     ],
 )
 def test_hadamard_product(kernel, data, expected) -> None:
-    assert d04.hadamard_product(kernel, data) == expected
+    assert d04.Conv2d.hadamard_product(kernel, data) == expected
 
 
 @pytest.mark.parametrize(
@@ -43,41 +43,48 @@ def test_hadamard_product(kernel, data, expected) -> None:
     ],
 )
 def test_reduce_matrix(matrix, expected) -> None:
-    assert d04.reduce_matrix(matrix) == expected
+    assert d04.Conv2d.reduce_matrix(matrix) == expected
 
 
 # ---------------------------------------------------------------------------
 # Hypothesis property-based tests
 # ---------------------------------------------------------------------------
 
-# Helper: square matrices of numbers
-matrix_strategy = st.lists(
-    st.lists(st.floats(allow_nan=False, allow_infinity=False), min_size=1, max_size=5),
-    min_size=1,
-    max_size=5,
-)
+
+# Rectangular non-empty matrices of floats
+@st.composite
+def matrix_strategy(draw):
+    rows = draw(st.integers(min_value=1, max_value=5))
+    cols = draw(st.integers(min_value=1, max_value=5))
+
+    row_strategy = st.lists(
+        st.floats(allow_nan=False, allow_infinity=False),
+        min_size=cols,
+        max_size=cols,
+    )
+    return draw(st.lists(row_strategy, min_size=rows, max_size=rows))
 
 
 @given(
-    a=matrix_strategy,
-    b=matrix_strategy,
+    a=matrix_strategy(),
+    b=matrix_strategy(),
 )
 def test_hadamard_product_elementwise(a, b) -> None:
     """Checks: result[i][j] == a[i][j] * b[i][j] for all i,j."""
     assume_same_shape = len(a) == len(b) and all(
-        len(a[i]) == len(b[i]) for i in range(len(a))
+        len(a[i]) == len(b[i]) for i, _ in enumerate(a)
     )
     if not assume_same_shape:
         return  # skip cases where shapes differ
 
-    result = d04.hadamard_product(a, b)
-    for i in range(len(a)):
-        for j in range(len(a[i])):
+    result = d04.Conv2d.hadamard_product(a, b)
+    for i, row in enumerate(a):
+        for j, _ in enumerate(row):
             assert result[i][j] == a[i][j] * b[i][j]
 
 
-@given(matrix=matrix_strategy)
+@given(matrix=matrix_strategy())
 def test_reduce_matrix_matches_manual_sum(matrix) -> None:
     """Checks: reduce_matrix(matrix) == sum(flat(matrix))."""
     expected = sum(sum(row) for row in matrix)
-    assert d04.reduce_matrix(matrix) == expected
+    assert d04.Conv2d.reduce_matrix(matrix) == expected
