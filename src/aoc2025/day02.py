@@ -1,7 +1,10 @@
 from pathlib import Path
 from pprint import pprint
+from collections.abc import Iterable
+import math
 
-from .utils.io import read_input
+from aoc2025.utils.io import read_input
+from aoc2025.utils.benchmark import time_callable
 
 
 def part1_get_invalid_ids_brute_force(ranges: list[list[int]]) -> list[int]:
@@ -56,7 +59,120 @@ def part1_get_invalid_ids_brute_force(ranges: list[list[int]]) -> list[int]:
             if lower_half == higher_half:
                 invalid_ids.append(num)
 
-    return invalid_ids
+    return sorted(set(invalid_ids))
+
+
+def generate_invalid_ids_in_range(low: int, high: int) -> list[int]:
+    """Generate all invalid IDs within [low, high].
+
+    Invalid IDs are numbers with even digit count 2k formed as xx where x has k digits.
+    """
+    result: list[int] = []
+
+    # Maximum number of digits we need to consider
+    max_digits: int = math.ceil(math.log10(high))
+
+    # Iterate over even digit counts: 2, 4, 6, ...
+    for digits in range(2, max_digits + 1, 2):
+        k = digits // 2
+
+        base = 10**k  # 10^k
+        x_min = base // 10  # smallest k-digit number
+        x_max = base - 1  # largest  k-digit number
+
+        # full = x * (10^k + 1)
+        multiplier = base + 1
+
+        # Solve L <= full = x * multiplier <= R
+        # → x >= ceil(L / multiplier)
+        # → x <= floor(R / multiplier)
+
+        x_low = (low + multiplier - 1) // multiplier
+        x_high = high // multiplier
+
+        # Clamp to valid k-digit range
+        x_low = max(x_low, x_min)
+        x_high = min(x_high, x_max)
+
+        if x_low <= x_high:
+            for x in range(x_low, x_high + 1):
+                full = x * multiplier
+                result.append(full)
+
+    return result
+
+
+def collect_invalid_ids(ranges: Iterable[list[int]]) -> list[int]:
+    """Collect invalid IDs across all ranges."""
+    all_invalid: list[int] = []
+    for low, high in ranges:
+        all_invalid.extend(generate_invalid_ids_in_range(low, high))
+    return sorted(set(all_invalid))
+
+
+def divisors(n: int) -> list[int]:
+    """Return all divisors of n except n itself."""
+    result: list[int] = []
+    for d in range(1, int(math.sqrt(n)) + 1):
+        if n % d == 0:
+            if d < n:
+                result.append(d)
+            q = n // d
+            if q != d and q < n:
+                result.append(q)
+    return sorted(result)
+
+
+def generate_periodic_ids_in_range(low: int, high: int) -> list[int]:
+    """Generate all periodic (invalid) IDs within [low, high].
+
+    A number is invalid if its digits form S repeated k>=2 times.
+    """
+    result: list[int] = []
+
+    max_digits = math.ceil(math.log10(high))
+
+    # Loop over digit lengths
+    for n in range(2, max_digits + 1):
+        n_min = 10 ** (n - 1)
+        n_max = 10**n - 1
+
+        # Skip digit lengths that do not overlap range
+        if n_max < low or n_min > high:
+            continue
+
+        # Get all period lengths p dividing n
+        for p in divisors(n):
+            r = n // p
+
+            # multiplier = 111...111 (r copies) in base 10^p
+            # multiplier = (10^(p*r) - 1) // (10^p - 1)
+            pow_p = 10**p
+            multiplier = (pow_p**r - 1) // (pow_p - 1)
+
+            # Solve bounds on base
+            base_low = (low + multiplier - 1) // multiplier
+            base_high = high // multiplier
+
+            # Clamp to valid p-digit bases
+            p_min = pow_p // 10
+            p_max = pow_p - 1
+
+            base_low = max(base_low, p_min)
+            base_high = min(base_high, p_max)
+
+            if base_low <= base_high:
+                for base in range(base_low, base_high + 1):
+                    result.append(base * multiplier)
+
+    return result
+
+
+def collect_invalid_ids_part2(ranges: Iterable[list[int]]) -> list[int]:
+    all_invalid: list[int] = []
+    for low, high in ranges:
+        all_invalid.extend(generate_periodic_ids_in_range(low, high))
+    return sorted(set(all_invalid))
 
 
 def factors(n: int) -> list[int]:
@@ -104,7 +220,43 @@ def part2_get_invalid_ids_brute_force(ranges: list[list[int]]) -> list[int]:
                     invalid_ids.append(num)
                     break
 
-    return invalid_ids
+    return sorted(set(invalid_ids))
+
+
+def benchmark(
+    data: Iterable[list[int]],
+    *,
+    number: int = 10,
+) -> dict[str, float]:
+    """
+    Benchmark the three target functions.
+    Assumes the functions are already imported and available in the namespace.
+    """
+
+    timings: dict[str, float] = {
+        "part1_bruteforce": time_callable(
+            part1_get_invalid_ids_brute_force,
+            data,
+            number=number,
+        ),
+        "part1_optimised": time_callable(
+            collect_invalid_ids,
+            data,
+            number=number,
+        ),
+        "part2_bruteforce": time_callable(
+            collect_invalid_ids_part2,
+            data,
+            number=number,
+        ),
+        "part2_optimised": time_callable(
+            collect_invalid_ids_part2,
+            data,
+            number=number,
+        ),
+    }
+
+    return timings
 
 
 def main() -> None:
@@ -132,14 +284,35 @@ def main() -> None:
 
     pprint(ranges)
 
-    invalid_ids: list[int] = part1_get_invalid_ids_brute_force(ranges)
-    pprint(f"Invalid IDs: {invalid_ids}")
+    invalid_ids_periodic: list[int] = part1_get_invalid_ids_brute_force(ranges)
+    pprint(f"Invalid IDs: {invalid_ids_periodic}")
 
-    pprint(f"Part 1 solution is: {sum(invalid_ids)}.")
+    pprint(f"Part 1 solution is: {sum(invalid_ids_periodic)}.")
 
-    invalid_ids = part2_get_invalid_ids_brute_force(ranges)
-    pprint(f"Invalid IDs: {invalid_ids}")
-    pprint(f"Part 2 solution is: {sum(invalid_ids)}.")
+    invalid_ids_v2: list[int] = collect_invalid_ids(ranges)
+
+    if not invalid_ids_periodic == invalid_ids_v2:
+        raise ValueError(
+            f"Invalid IDs mismatch: {invalid_ids_periodic} != {invalid_ids_v2}"
+        )
+    else:
+        print("Part 1 optimised version is correct!")
+
+    invalid_ids_periodic = part2_get_invalid_ids_brute_force(ranges)
+    pprint(f"Invalid IDs: {invalid_ids_periodic}")
+    pprint(f"Part 2 solution is: {sum(invalid_ids_periodic)}.")
+
+    invalid_ids_periodic_v2: list[int] = collect_invalid_ids_part2(ranges)
+
+    if not invalid_ids_periodic_v2 == invalid_ids_periodic:
+        raise ValueError(
+            f"Invalid IDs mismatch: {invalid_ids_periodic_v2} != {invalid_ids_periodic}"
+        )
+    else:
+        print("Part 2 optimised version is correct!")
+
+    result = benchmark(ranges, number=100)
+    pprint(result)
 
 
 if __name__ == "__main__":
