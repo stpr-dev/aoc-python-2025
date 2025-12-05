@@ -132,7 +132,7 @@ class Conv2d[T]:
 
 def main() -> None:
     data_path: Path = (
-        Path(__file__).parent.parent.parent / "data" / "2025" / "day04example.txt"
+        Path(__file__).parent.parent.parent / "data" / "2025" / "day04.txt"
     )
 
     if not data_path.exists():
@@ -142,6 +142,28 @@ def main() -> None:
 
     # Numbers should be a string of digits.
     pprint(data)
+
+    # Convert list[str] to list[list[int]].
+    # The data is of form '..@@' where . == 0 and @ == 1.
+    data_int: list[list[int]] = [[1 if c == "@" else 0 for c in row] for row in data]
+
+    pprint(data_int)
+
+    # Adjacency kernel.
+    kernel = [[1, 1, 1], [1, 0, 1], [1, 1, 1]]
+
+    conv = Conv2d(kernel)
+    adjacency = conv.convolve(data_int)
+
+    # The solution to the first part is simply the total number of elements that are
+    #  < 4 and the data matrix had a 1 in the corresponding position.
+    available: int = sum(
+        val < 4 and data_int[idx][col] == 1
+        for idx, row in enumerate(adjacency)
+        for col, val in enumerate(row)
+    )
+
+    print(f"Solution to part 1: {available}")
 
 
 if __name__ == "__main__":
