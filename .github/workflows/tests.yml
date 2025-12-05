@@ -5,11 +5,16 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - name: Install the latest version of uv and set the python version
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.13"
-      - run: pip install -e .
-      - run: pip install pytest
-      - run: pytest -q
+          python-version: ${{ matrix.python-version }}
+      - name: Sync environment (install deps + dev-deps according to pyproject/uv.lock)
+        run: uv sync --all-extras
+      - name: Test with python ${{ matrix.python-version }}
+        run: uv run --frozen pytest
