@@ -130,6 +130,32 @@ class Conv2d[T]:
         return output
 
 
+def invert_mask(mask: list[list[int]]) -> list[list[int]]:
+    """Invert a binary mask: 1 -> 0, 0 -> 1."""
+    return [[1 - val for val in row] for row in mask]
+
+
+def apply_removal_mask(data: list[list[int]], mask: list[list[int]]) -> list[list[int]]:
+    """Zero out entries in `data` wherever mask == 1."""
+    rows = len(data)
+    cols = len(data[0])
+    return [
+        [data[i][j] if mask[i][j] == 0 else 0 for j in range(cols)] for i in range(rows)
+    ]
+
+
+def compute_availability(
+    adjacency: list[list[int]], data: list[list[int]]
+) -> list[list[int]]:
+    """Return mask of rolls accessible to forklifts."""
+    rows = len(data)
+    cols = len(data[0])
+    return [
+        [1 if adjacency[i][j] < 4 and data[i][j] == 1 else 0 for j in range(cols)]
+        for i in range(rows)
+    ]
+
+
 def main() -> None:
     data_path: Path = (
         Path(__file__).parent.parent.parent / "data" / "2025" / "day04.txt"
@@ -157,13 +183,37 @@ def main() -> None:
 
     # The solution to the first part is simply the total number of elements that are
     #  < 4 and the data matrix had a 1 in the corresponding position.
-    available: int = sum(
-        val < 4 and data_int[idx][col] == 1
+    availability_matrix: list[list[int]] = [
+        [1 if val < 4 and data_int[idx][col] == 1 else 0 for col, val in enumerate(row)]
         for idx, row in enumerate(adjacency)
-        for col, val in enumerate(row)
-    )
+    ]
 
-    print(f"Solution to part 1: {available}")
+    available_to_remove: int = sum(sum(row) for row in availability_matrix)
+
+    print(f"Solution to part 1: {available_to_remove}")
+
+    # For part 2, we simply have to repeatedly remove available elements, then redo
+    # the above calculation. One easy way is to invert the availability matrix,
+    # calculated the hadamard product with the data matrix, and use that as the new
+    # data matrix for the next iteration.
+
+    cumulative_removed: int = available_to_remove
+
+    while available_to_remove > 0:
+        remove_mask = invert_mask(availability_matrix)
+        data_int = Conv2d.hadamard_product(remove_mask, data_int)
+        adjacency = conv.convolve(data_int)
+        availability_matrix = [
+            [
+                1 if val < 4 and data_int[idx][col] == 1 else 0
+                for col, val in enumerate(row)
+            ]
+            for idx, row in enumerate(adjacency)
+        ]
+        available_to_remove = sum(sum(row) for row in availability_matrix)
+        cumulative_removed += available_to_remove
+
+    print(f"Solution to part 2: {cumulative_removed}")
 
 
 if __name__ == "__main__":
