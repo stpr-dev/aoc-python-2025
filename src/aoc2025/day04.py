@@ -79,6 +79,56 @@ class Conv2d[T]:
 
         return out
 
+    @staticmethod
+    def extract_window(
+        matrix: list[list[T]],
+        top: int,
+        left: int,
+        height: int,
+        width: int,
+    ) -> list[list[T]]:
+        """Extract a (height × width) window starting at (top, left)."""
+        if not Conv2d.is_valid_matrix(matrix):
+            raise ValueError("Matrix must be valid")
+
+        rows = len(matrix)
+        cols = len(matrix[0])
+
+        if top < 0 or left < 0 or top + height > rows or left + width > cols:
+            raise ValueError("Window out of bounds")
+
+        return [matrix[r][left : left + width] for r in range(top, top + height)]
+
+    def convolve(self, data: list[list[T]], padding: int = 1) -> list[list[T]]:
+        """Perform 2D convolution (cross-correlation) of data with the kernel."""
+        if not Conv2d.is_valid_matrix(data):
+            raise ValueError("Input data must be a valid matrix")
+
+        kernel_h = len(self.kernel)
+        kernel_w = len(self.kernel[0])
+
+        # Pad data
+        padded = Conv2d.pad_matrix(data, padding=padding)
+        padded_h = len(padded)
+        padded_w = len(padded[0])
+
+        # Compute output shape
+        out_h = padded_h - kernel_h + 1
+        out_w = padded_w - kernel_w + 1
+
+        output: list[list[T]] = []
+
+        for i in range(out_h):
+            row_out: list[T] = []
+            for j in range(out_w):
+                window = Conv2d.extract_window(padded, i, j, kernel_h, kernel_w)
+                product = Conv2d.hadamard_product(self.kernel, window)
+                reduced = Conv2d.reduce_matrix(product)
+                row_out.append(reduced)
+            output.append(row_out)
+
+        return output
+
 
 def main() -> None:
     data_path: Path = (

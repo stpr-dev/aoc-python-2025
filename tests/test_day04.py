@@ -103,6 +103,82 @@ def test_pad_matrix_preserves_values() -> None:
     assert padded[2][1] == 8
 
 
+def test_extract_window_basic() -> None:
+    matrix = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+
+    w = d04.Conv2d.extract_window(matrix, top=1, left=1, height=2, width=2)
+    assert w == [
+        [5, 6],
+        [8, 9],
+    ]
+
+
+def test_extract_window_full() -> None:
+    matrix = [
+        [1, 2],
+        [3, 4],
+    ]
+    w = d04.Conv2d.extract_window(matrix, 0, 0, 2, 2)
+    assert w == [[1, 2], [3, 4]]
+
+
+def test_extract_window_raises() -> None:
+    matrix = [[1, 2], [3, 4]]
+    with pytest.raises(ValueError):
+        d04.Conv2d.extract_window(matrix, 1, 0, 3, 2)  # too
+
+
+def test_convolve_identity_kernel() -> None:
+    kernel = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
+    conv = d04.Conv2d(kernel)
+
+    data = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+
+    out = conv.convolve(data, padding=1)
+    # identity kernel → same as input
+    expected = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    assert out == expected
+
+
+def test_convolve_summing_kernel() -> None:
+    kernel = [[1, 1], [1, 1]]
+    conv = d04.Conv2d(kernel)
+
+    data = [
+        [1, 2],
+        [3, 4],
+    ]
+
+    out = conv.convolve(data, padding=0)
+    # sum of all elements = 10
+    assert out == [[10]]
+
+
+def test_convolve_padding() -> None:
+    kernel = [[1]]
+    conv = d04.Conv2d(kernel)
+    data = [[5]]
+    out = conv.convolve(data, padding=1)
+    # kernel = [[1]], so just copies padded matrix
+    assert out == [
+        [0, 0, 0],
+        [0, 5, 0],
+        [0, 0, 0],
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Hypothesis property-based tests
 # ---------------------------------------------------------------------------
@@ -173,3 +249,71 @@ def test_pad_matrix_property(matrix, pad):
         for j, _ in enumerate(row):
             if i < pad or i >= pad + rows or j < pad or j >= pad + cols:
                 assert row[j] == zero
+
+
+@given(
+    matrix=matrix_strategy(),
+    data=st.data(),
+)
+def test_extract_window_property(matrix, data):
+    rows = len(matrix)
+    cols = len(matrix[0])
+
+    # draw valid window sizes
+    height = data.draw(st.integers(min_value=1, max_value=rows))
+    width = data.draw(st.integers(min_value=1, max_value=cols))
+
+    # draw valid top-left corner
+    top = data.draw(st.integers(min_value=0, max_value=rows - height))
+    left = data.draw(st.integers(min_value=0, max_value=cols - width))
+
+    w = d04.Conv2d.extract_window(matrix, top, left, height, width)
+
+    # shape correct
+    assert len(w) == height
+    assert all(len(row) == width for row in w)
+
+    # values preserved
+    for i in range(height):
+        for j in range(width):
+            assert w[i][j] == matrix[top + i][left + j]
+
+
+@st.composite
+def conv_input_strategy(draw):
+    rows = draw(st.integers(min_value=2, max_value=6))
+    cols = draw(st.integers(min_value=2, max_value=6))
+    data = draw(
+        st.lists(
+            st.lists(st.integers(-10, 10), min_size=cols, max_size=cols),
+            min_size=rows,
+            max_size=rows,
+        )
+    )
+    krows = draw(st.integers(min_value=1, max_value=rows))
+    kcols = draw(st.integers(min_value=1, max_value=cols))
+    kernel = draw(
+        st.lists(
+            st.lists(st.integers(-2, 2), min_size=kcols, max_size=kcols),
+            min_size=krows,
+            max_size=krows,
+        )
+    )
+    padding = draw(st.integers(0, 2))
+    return data, kernel, padding
+
+
+@given(data=conv_input_strategy())
+def test_convolve_shape(data):
+    data, kernel, padding = data
+    conv = d04.Conv2d(kernel)
+
+    out = conv.convolve(data, padding=padding)
+    padded_h = len(d04.Conv2d.pad_matrix(data, padding))
+    padded_w = len(d04.Conv2d.pad_matrix(data, padding)[0])
+
+    expected_h = padded_h - len(kernel) + 1
+    expected_w = padded_w - len(kernel[0]) + 1
+
+    assert len(out) == expected_h
+    assert all(len(row) == expected_w for row in out)
