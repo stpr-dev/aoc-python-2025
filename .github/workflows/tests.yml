@@ -16,12 +16,20 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
+
+      # Discover uv’s cache directory
+      - name: Determine uv cache dir
+        id: uv_cache
+        run: echo "dir=$(uv cache dir)" >> "$GITHUB_OUTPUT"
+
+      # Ensure it exists before cache restore
       - name: Create uv cache directory
-        run: mkdir -p $HOME/.cache/uv
+        run: mkdir -p "${{ steps.uv_cache.outputs.dir }}"
+
       - name: Cache uv environment
         uses: actions/cache@v4
         with:
-          path: $HOME/.cache/uv
+          path: ${{ steps.uv_cache.outputs.dir }}
           key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             ${{ runner.os }}-uv-${{ matrix.python-version }}-
@@ -31,3 +39,8 @@ jobs:
 
       - name: Run tests
         run: uv run pytest -q
+
+      # Ensure cache directory still exists for post-job save
+      - name: Ensure uv cache exists for save
+        if: always()
+        run: mkdir -p "${{ steps.uv_cache.outputs.dir }}"
