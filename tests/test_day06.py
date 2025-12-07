@@ -38,6 +38,24 @@ def test_row_reduce(matrix, ops, expected):
 
 
 @pytest.mark.parametrize(
+    "matrix, ops",
+    [
+        (
+            [[1, 2, 3], [4, 5, 6]],
+            [sum, sum, sum],  # Too many
+        ),
+        (
+            [[2, 3], [5, 7], [11, 13]],
+            [sum],  # Too few
+        ),
+    ],
+)
+def test_row_reduce_invalid_mismatch(matrix, ops):
+    with pytest.raises(ValueError):
+        d06.MatrixReduce.row_reduce(matrix, ops)
+
+
+@pytest.mark.parametrize(
     "matrix, ops, expected",
     [
         (
@@ -63,6 +81,24 @@ def test_column_reduce(matrix, ops, expected):
 
 
 @pytest.mark.parametrize(
+    "matrix, ops",
+    [
+        (
+            [[1, 2, 3], [4, 5, 6]],
+            [sum, sum],  # Fewer
+        ),
+        (
+            [[2, 3], [5, 7], [11, 13]],
+            [sum, sum, sum],  # More
+        ),
+    ],
+)
+def test_column_reduce_invalid_mismatch(matrix, ops):
+    with pytest.raises(ValueError):
+        d06.MatrixReduce.column_reduce(matrix, ops)
+
+
+@pytest.mark.parametrize(
     "matrix, op, expected",
     [
         (
@@ -82,6 +118,39 @@ def test_all_reduce(matrix, op, expected):
     assert out == expected
 
 
+def test_row_reduce_ragged_valid():
+    matrix = [
+        [1, 2, 3],
+        [4, 5],
+        [6],
+    ]
+    ops = [sum, sum, sum]
+    out = d06.MatrixReduce.row_reduce(matrix, ops, ragged=True)
+    assert out == [6, 9, 6]
+
+
+def test_row_reduce_ragged_invalid_mismatch():
+    matrix = [
+        [1, 2, 3],
+        [4, 5],
+    ]
+    ops = [sum]  # wrong length
+    with pytest.raises(ValueError):
+        d06.MatrixReduce.row_reduce(matrix, ops, ragged=True)
+
+
+def test_all_reduce_ragged():
+    matrix = [
+        [1, 2, 3],
+        [4, 5],
+        [6],
+    ]
+    # ragged all_reduce delegates to row_reduce(ragged=True)
+    out = d06.MatrixReduce.all_reduce(matrix, sum, ragged=True)
+    # row sums = [6, 9, 6], then sum again → 21
+    assert out == 21
+
+
 @pytest.mark.parametrize(
     "matrix",
     [
@@ -97,6 +166,24 @@ def test_invalid_matrix(matrix):
         d06.MatrixReduce.column_reduce(matrix, [sum])
     with pytest.raises(ValueError):
         d06.MatrixReduce.all_reduce(matrix, sum)
+
+
+def test_transposed_parsing_basic():
+    data = [
+        "123 456",
+        " 78  90",
+    ]
+
+    out = d06.transposed_parsing(data)
+
+    # Columns after transpose:
+    # ['1 ', '27', '38', '  ', '4 ', '59', '60']
+    # Grouped into rows, split on all-blank column:
+    expected = [
+        [1, 27, 38],
+        [4, 59, 60],
+    ]
+    assert out == expected
 
 
 # ---------------------------------------------------------------------------
@@ -193,3 +280,40 @@ def test_all_reduce_matches_row_of_column(data):
     expected = op(row_vals)
 
     assert ar == expected
+
+
+@st.composite
+def ragged_matrix_and_ops_strategy(draw):
+    rows = draw(st.integers(min_value=1, max_value=10))
+
+    matrix: list[list[int]] = []
+    for _ in range(rows):
+        cols = draw(st.integers(min_value=1, max_value=10))
+        row = draw(
+            st.lists(
+                st.integers(min_value=-10, max_value=10),
+                min_size=cols,
+                max_size=cols,
+            )
+        )
+        matrix.append(row)
+
+    ops = draw(
+        st.lists(
+            st.sampled_from([sum, d06.math.prod]),
+            min_size=rows,
+            max_size=rows,
+        )
+    )
+
+    return matrix, ops
+
+
+@given(data=ragged_matrix_and_ops_strategy())
+def test_row_reduce_ragged_property(data):
+    matrix, ops = data
+
+    out = d06.MatrixReduce.row_reduce(matrix, ops, ragged=True)
+    expected = [op(row) for row, op in zip(matrix, ops, strict=True)]
+
+    assert out == expected
