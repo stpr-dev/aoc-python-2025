@@ -1,6 +1,7 @@
 from pathlib import Path
 from pprint import pprint
-from collections.abc import Sequence
+from collections.abc import Sequence, Iterable, Mapping
+from collections import Counter
 from typing import TypeVar
 
 from aoc2025.utils.io import read_input_lines
@@ -19,7 +20,7 @@ def validate_indices(indices: Sequence[int], length: int) -> bool:
     return True
 
 
-def process_layer(inputs: list[int], layer: list[int]) -> tuple[list[int], int]:
+def process_layer(inputs: Iterable[int], layer: Iterable[int]) -> tuple[set[int], int]:
     """Process input to a layer and return the output as well as the number of
     splits."""
     # The rule is if a number in inputs is present in layer, the output will contain
@@ -37,7 +38,22 @@ def process_layer(inputs: list[int], layer: list[int]) -> tuple[list[int], int]:
         else:
             outputs.add(ip)
 
-    return sorted(outputs), splits
+    return set(outputs), splits
+
+
+def process_layer_counts(
+    counts: Mapping[int, int],
+    layer: set[int],
+) -> Counter[int]:
+    """Propagate timeline counts through one layer."""
+    next_counts: Counter[int] = Counter()
+    for pos, c in counts.items():
+        if pos in layer:
+            next_counts[pos - 1] += c
+            next_counts[pos + 1] += c
+        else:
+            next_counts[pos] += c
+    return next_counts
 
 
 def main() -> None:
@@ -54,18 +70,18 @@ def main() -> None:
 
     symbols: str = "S^"
 
-    indices: list[list[int]] = []
+    indices: list[set[int]] = []
 
     for row in data:
         idx = find_occurrences(row, symbols)
         if not validate_indices(idx, len(row)):
             raise ValueError(f"Invalid indices {idx}")
-        indices.append(idx)
+        indices.append(set(idx))
 
     # pprint(indices)
 
-    inputs: list[int] = sorted(set(indices[0]))
-    layers: list[list[int]] = indices[1:]
+    inputs: set[int] = set(indices[0])
+    layers: list[set[int]] = indices[1:]
     splits: list[int] = []
 
     for layer in layers:
@@ -73,7 +89,19 @@ def main() -> None:
         splits.append(sp)
         inputs = output
 
+    # print(f"Splits: {splits}")
     print(f"Number of splits: {sum(splits)}")
+
+    # initial timelines: 1 timeline at each starting S (should normally be exactly one)
+    counts = Counter()
+    for start_pos in set(indices[0]):  # in case there are multiple S
+        counts[start_pos] += 1
+
+    for layer in layers:
+        counts = process_layer_counts(counts, layer)
+
+    total_timelines = sum(counts.values())
+    print(f"Number of timelines: {total_timelines}")
 
 
 if __name__ == "__main__":

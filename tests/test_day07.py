@@ -1,6 +1,13 @@
+from collections import Counter
+
 from hypothesis import given, strategies as st
 
-from aoc2025.day07 import find_occurrences, process_layer, validate_indices
+from aoc2025.day07 import (
+    find_occurrences,
+    process_layer,
+    validate_indices,
+    process_layer_counts,
+)
 
 
 def test_find_occurrences_basic():
@@ -24,7 +31,7 @@ def test_process_layer_no_splits():
     inputs = [3, 5]
     layer = [10]
     output, splits = process_layer(inputs, layer)
-    assert output == [3, 5]
+    assert output == {3, 5}
     assert splits == 0
 
 
@@ -33,7 +40,7 @@ def test_process_layer_with_split():
     layer = [5]
     output, splits = process_layer(inputs, layer)
     assert splits == 1
-    assert sorted(output) == [3, 4, 6]
+    assert output == {3, 4, 6}
 
 
 def test_process_layer_multiple_splits():
@@ -44,7 +51,53 @@ def test_process_layer_multiple_splits():
     # 6 hits → outputs (5,7)
     # 4 unaffected
     assert splits == 2
-    assert sorted(output) == [1, 3, 4, 5, 7]
+    assert output == {1, 3, 4, 5, 7}
+
+
+def test_process_layer_counts_no_split():
+    counts = Counter({4: 1})
+    layer = {10}  # no hit
+    next_counts = process_layer_counts(counts, layer)
+
+    assert next_counts == Counter({4: 1})
+
+
+def test_process_layer_counts_single_split():
+    counts = Counter({4: 1})
+    layer = {4}
+    next_counts = process_layer_counts(counts, layer)
+
+    # 4 splits → 3 and 5
+    assert next_counts == Counter({3: 1, 5: 1})
+
+
+def test_process_layer_counts_multiple_positions():
+    counts = Counter({2: 1, 4: 2})
+    layer = {4}
+
+    next_counts = process_layer_counts(counts, layer)
+
+    # 2 (count=1) does not split
+    # 4 (count=2) splits into 3 and 5 twice
+    expected = Counter(
+        {
+            2: 1,  # unchanged
+            3: 2,  # two splits from 4
+            5: 2,
+        }
+    )
+
+    assert next_counts == expected
+
+
+def test_process_layer_counts_merge_paths():
+    counts = Counter({5: 3})
+    layer = {5}
+
+    next_counts = process_layer_counts(counts, layer)
+
+    # three timelines at 5 split into three at 4 and three at 6
+    assert next_counts == Counter({4: 3, 6: 3})
 
 
 @given(
@@ -85,3 +138,55 @@ def test_process_layer_properties(inputs, layer):
             assert {ip - 1, ip + 1}.issubset(out_set)
         else:
             assert ip in out_set
+
+
+@given(
+    # positions are ≥1 as in your invariant
+    counts=st.dictionaries(
+        keys=st.integers(min_value=1, max_value=50),
+        values=st.integers(min_value=1, max_value=10),  # nonzero counts
+        min_size=1,
+        max_size=20,
+    ),
+    layer=st.sets(
+        st.integers(min_value=1, max_value=50),
+        min_size=0,
+        max_size=20,
+    ),
+)
+def test_process_layer_counts_properties(counts, layer):
+    # convert dict to Counter
+    counts = Counter(counts)
+    next_counts = process_layer_counts(counts, layer)
+
+    # Property 1: all resulting counts are positive integers
+    assert all(v > 0 for v in next_counts.values())
+
+    # Property 2: for each position p:
+    #   If p ∉ layer, its weight moves to same pos.
+    #   If p ∈ layer, its weight moves to p-1 and p+1.
+    expected = Counter()
+    for pos, c in counts.items():
+        if pos in layer:
+            expected[pos - 1] += c
+            expected[pos + 1] += c
+        else:
+            expected[pos] += c
+
+    assert next_counts == expected
+
+    # Property 3: total timelines conserved except for splitting logic
+    # i.e., total output = sum of:
+    #        (for each p ∉ layer: c)
+    #        (for each p ∈ layer: 2*c)
+
+    total_out = sum(next_counts.values())
+
+    expected_out = 0
+    for pos, c in counts.items():
+        if pos in layer:
+            expected_out += 2 * c
+        else:
+            expected_out += c
+
+    assert total_out == expected_out
