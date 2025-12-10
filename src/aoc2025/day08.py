@@ -1,10 +1,13 @@
+import heapq
 import math
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from pprint import pprint
+from collections.abc import Sequence
 
-from aoc2025.utils.io import read_input_lines
+
+# -------------------------
+# Data Structures
+# -------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -13,126 +16,97 @@ class Point3D:
     y: int
     z: int
 
-    def distance(self, other: "Point3D") -> float:
-        return math.dist((self.x, self.y, self.z), (other.x, other.y, other.z))
-
-    def __repr__(self) -> str:
-        return f"Point3D(x={self.x}, y={self.y}, z={self.z})"
-
-
-@dataclass(frozen=True, slots=True)
-class Point3DPair:
-    point1: Point3D
-    point2: Point3D
-    distance: float
-    indices: tuple[int, int]
-
-    def __repr__(self) -> str:
-        return f"Point3DPair(point1={self.point1}, point2={self.point2}, distance={self.distance}, indices={self.indices})"
+    def sq_distance(self, other: "Point3D") -> int:
+        dx: int = self.x - other.x
+        dy: int = self.y - other.y
+        dz: int = self.z - other.z
+        return dx * dx + dy * dy + dz * dz
 
 
-class Grouper:
-    def __init__(self, points: Sequence[Point3D]):
-        self.groups: list[set[int]] = []
-        self.points: list[Point3D] = list(points)
-        self.pairwise_distances: list[list[float]] = []
-        self.flattened_distances: list[Point3DPair] = []
+class DSU:
+    def __init__(self, n: int) -> None:
+        self.parent: list[int] = list(range(n))
+        self.size: list[int] = [1] * n
 
-    def _calculate_pairwise_euclidean_distance(self) -> None:
-        """Compute the pairwise Euclidean distance between two sequences."""
-        self.pairwise_distances = [
-            [point.distance(other) for other in self.points] for point in self.points
-        ]
+    def find(self, x: int) -> int:
+        # Path compression
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]
+            x = self.parent[x]
+        return x
 
-    def _make_lower_diagonal_infinity(self):
-        for i, row in enumerate(self.pairwise_distances):
-            for j in range(i, len(row)):
-                row[j] = float("inf")
+    def union(self, a: int, b: int) -> None:
+        ra: int = self.find(a)
+        rb: int = self.find(b)
+        if ra == rb:
+            return
+        # Union by size
+        if self.size[ra] < self.size[rb]:
+            ra, rb = rb, ra
+        self.parent[rb] = ra
+        self.size[ra] += self.size[rb]
 
-    def _flatten_and_sort(self):
-        self.flattened_distances = [
-            Point3DPair(point1, point2, distance, (i, j))
-            for i, row in enumerate(self.pairwise_distances)
-            for j, distance in enumerate(row)
-            for point1, point2 in [(self.points[i], self.points[j])]
-        ]
 
-        self.flattened_distances.sort(key=lambda x: x.distance)
+# -------------------------
+# Solver
+# -------------------------
 
-    def _get_group_index(self, point_index: int) -> int | None:
-        for idx, group in enumerate(self.groups):
-            if point_index in group:
-                return idx
-        return None
 
-    def _point_index_in_group(self, point_index: int) -> bool:
-        return self._get_group_index(point_index) is not None
+def solve(points: Sequence[Point3D], k: int) -> int:
+    n: int = len(points)
 
-    def _make_groups(self, max_num: int = -1):
-        if not self.flattened_distances:
-            raise ValueError("No flattened distances to form groups")
+    # Generate all pairwise edges as (sq_distance, i, j)
+    edges: list[tuple[int, int, int]] = []
+    for i in range(n):
+        pi = points[i]
+        for j in range(i):
+            pj = points[j]
+            d2 = pi.sq_distance(pj)
+            edges.append((d2, i, j))
 
-        max_iterations = len(self.flattened_distances) if max_num < 0 else max_num
-        # The logic is as follows:
-        # For each point pair in the sorted list, if the point pair is not in a group yet,
-        # add the point pair to the group of the nearest neighbour.
-        # If the point pair is in a group, add the point pair to the group of the point itself.
-        for point_pair in self.flattened_distances[:max_iterations]:
-            point_idx, nearest_neighbour_idx = point_pair.indices
-            neighbour_group_idx = self._get_group_index(nearest_neighbour_idx)
-            point_group_idx = self._get_group_index(point_idx)
-            if neighbour_group_idx is not None:
-                self.groups[neighbour_group_idx].add(point_idx)
-            elif point_group_idx is not None:
-                self.groups[point_group_idx].add(nearest_neighbour_idx)
-            else:
-                self.groups.append({point_idx, nearest_neighbour_idx})
+    m = len(edges)
 
-            # Now there are cases where adding a new connecting would merge two
-            # groups. If so, update one of them and remove the other. We can
-            # determine that by looking to see if BOTH point_group_idx and
-            # neighbour_group_idx are not None.
-            if (
-                neighbour_group_idx is not None
-                and point_group_idx is not None
-                and neighbour_group_idx != point_group_idx
-            ):
-                self.groups[neighbour_group_idx] |= self.groups[point_group_idx]
-                self.groups.pop(point_group_idx)
+    # Get k smallest edges using heap if k << m
+    if k < m:
+        edges_k = heapq.nsmallest(k, edges, key=lambda e: e[0])
+    else:
+        edges.sort(key=lambda e: e[0])
+        edges_k = edges[:k]
 
-        return self.groups
+    # Initialize DSU and add edges
+    dsu = DSU(n)
+    for _, i, j in edges_k:
+        dsu.union(i, j)
 
-    def group(self, max_num: int = -1) -> list[set[int]]:
-        self._calculate_pairwise_euclidean_distance()
-        self._make_lower_diagonal_infinity()
-        self._flatten_and_sort()
-        return self._make_groups(max_num)
+    # Compute sizes of all connected components
+    comp: dict[int, int] = {}
+    for v in range(n):
+        r = dsu.find(v)
+        comp[r] = comp.get(r, 0) + 1
+
+    # Sort sizes descending
+    sizes = sorted(comp.values(), reverse=True)
+
+    # Multiply top 3 component sizes
+    return math.prod(sizes[:3])
+
+
+# -------------------------
+# I/O + Main
+# -------------------------
 
 
 def main() -> None:
-    data_path: Path = (
-        Path(__file__).parent.parent.parent / "data" / "2025" / "day08.txt"
-    )
-
+    data_path = Path(__file__).parent.parent.parent / "data" / "2025" / "day08.txt"
     if not data_path.exists():
-        raise FileNotFoundError(f"Data file not found at {data_path}")
+        raise FileNotFoundError(f"Data file not found: {data_path}")
 
-    data: list[str] = read_input_lines(data_path)
+    raw = data_path.read_text().strip().splitlines()
+    coords = [[int(x) for x in line.split(",")] for line in raw]
+    points = [Point3D(x, y, z) for x, y, z in coords]
 
-    # Each line is comma separated list of numbers.
-    data_int: list[list[int]] = [[int(x) for x in line.split(",")] for line in data]
-
-    # Convert to point objects.
-    points: list[Point3D] = [Point3D(x, y, z) for x, y, z in data_int]
-
-    grouper = Grouper(points)
-    groups = grouper.group(max_num=1000)
-    pprint(groups)
-
-    lengths: list[int] = sorted((len(group) for group in groups), reverse=True)
-    pprint(lengths)
-
-    print(f"Solution to part 1: {math.prod(lengths[:3])}")
+    result = solve(points, k=1000)
+    print(f"Solution to part 1: {result}")
 
 
 if __name__ == "__main__":
