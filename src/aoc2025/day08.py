@@ -3,11 +3,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pprint
-from typing import TypeVar
 
 from aoc2025.utils.io import read_input_lines
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True, slots=True)
