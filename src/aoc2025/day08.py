@@ -35,16 +35,18 @@ class DSU:
             x = self.parent[x]
         return x
 
-    def union(self, a: int, b: int) -> None:
+    def union(self, a: int, b: int) -> int:
         ra: int = self.find(a)
         rb: int = self.find(b)
         if ra == rb:
-            return
+            return self.size[ra]
         # Union by size
         if self.size[ra] < self.size[rb]:
             ra, rb = rb, ra
         self.parent[rb] = ra
         self.size[ra] += self.size[rb]
+
+        return self.size[ra]
 
 
 # -------------------------
@@ -76,7 +78,7 @@ def solve(points: Sequence[Point3D], k: int) -> int:
     # Initialize DSU and add edges
     dsu = DSU(n)
     for _, i, j in edges_k:
-        dsu.union(i, j)
+        _ = dsu.union(i, j)
 
     # Compute sizes of all connected components
     comp: dict[int, int] = {}
@@ -89,6 +91,32 @@ def solve(points: Sequence[Point3D], k: int) -> int:
 
     # Multiply top 3 component sizes
     return math.prod(sizes[:3])
+
+
+def solve_part2(points: Sequence[Point3D]) -> int:
+    n: int = len(points)
+
+    # Generate all pairwise edges as (sq_distance, i, j)
+    edges: list[tuple[int, int, int]] = []
+    for i in range(n):
+        pi = points[i]
+        for j in range(i):
+            pj = points[j]
+            d2 = pi.sq_distance(pj)
+            edges.append((d2, i, j))
+
+    # Get k smallest edges using heap if k << m
+    edges.sort(key=lambda e: e[0])
+
+    # Initialize DSU and add edges
+    dsu = DSU(n)
+    for _, i, j in edges:
+        new_size = dsu.union(i, j)
+
+        if new_size == n:
+            return points[i].x * points[j].x
+
+    raise ValueError("No solution found!")
 
 
 # -------------------------
@@ -107,6 +135,9 @@ def main() -> None:
 
     result = solve(points, k=1000)
     print(f"Solution to part 1: {result}")
+
+    result = solve_part2(points)
+    print(f"Solution to part 2: {result}")
 
 
 if __name__ == "__main__":

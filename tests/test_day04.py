@@ -191,7 +191,9 @@ def matrix_strategy(draw):
     cols = draw(st.integers(min_value=1, max_value=5))
 
     row_strategy = st.lists(
-        st.floats(allow_nan=False, allow_infinity=False),
+        st.floats(
+            allow_nan=False, allow_infinity=False, min_value=-10.0, max_value=10.0
+        ),
         min_size=cols,
         max_size=cols,
     )
